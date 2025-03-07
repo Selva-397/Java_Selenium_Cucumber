@@ -1,0 +1,186 @@
+{
+	"info": {
+		"_postman_id": "3ab906f9-b9f3-40f9-b334-047ca723b19d",
+		"name": "WhitelistComparison",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "18800949"
+	},
+	"item": [
+		{
+			"name": "API1Request",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Store the response of the first API\r",
+							"pm.environment.set(\"api1Response\", pm.response.text());\r",
+							"\r",
+							"// Trigger the second request\r",
+							"postman.setNextRequest(\"API2Request\");"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://dsc-resources.level3.com/api/v3/dynamicServices/whitelist/elynks/{{uniServiceId}}",
+					"protocol": "http",
+					"host": [
+						"dsc-resources",
+						"level3",
+						"com"
+					],
+					"path": [
+						"api",
+						"v3",
+						"dynamicServices",
+						"whitelist",
+						"elynks",
+						"{{uniServiceId}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "API2Request",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Get the response of the first API from the environment\r",
+							"var api1Response = pm.environment.get(\"api1Response\");\r",
+							"\r",
+							"// Get the response of the second API\r",
+							"var api2Response = pm.response.text();\r",
+							"\r",
+							"// Parse the responses if they are JSON\r",
+							"var api1ResponseJson = JSON.parse(api1Response);\r",
+							"var api2ResponseJson = JSON.parse(api2Response);\r",
+							"\r",
+							"// Function to remove specified attributes if they exist\r",
+							"function removeAttributes(obj, attributes) {\r",
+							"    attributes.forEach(attr => {\r",
+							"        if (obj.hasOwnProperty(attr)) {\r",
+							"            delete obj[attr];\r",
+							"        }\r",
+							"    });\r",
+							"}\r",
+							"\r",
+							"// Attributes to ignore\r",
+							"var attributesToIgnore = [\"createDt\", \"modifyDt\", \"supportedProviders\", \"id\", \"emailId\"];\r",
+							"\r",
+							"// Remove specified attributes from both responses\r",
+							"removeAttributes(api1ResponseJson.elynk, attributesToIgnore);\r",
+							"removeAttributes(api2ResponseJson.elynk, attributesToIgnore);\r",
+							"\r",
+							"// Check if the first response has status \"inactive\"\r",
+							"if (api1ResponseJson.elynk.status === \"inactive\") {\r",
+							"    console.log(\"UniService ID is in inactive state in prod\");\r",
+							"    pm.test(\"UniService ID is in inactive state in prod\", function () {\r",
+							"        pm.expect(api1ResponseJson.elynk.status).to.equal(\"inactive\");\r",
+							"    });\r",
+							"} else {\r",
+							"    // Deep-diff library code\r",
+							"    function deepDiff(lhs, rhs, changes, prefilter, path, key, stack) {\r",
+							"        path = path || [];\r",
+							"        stack = stack || [];\r",
+							"        var currentPath = path.slice(0);\r",
+							"        if (typeof key !== 'undefined') {\r",
+							"            if (prefilter && prefilter(currentPath, key)) { return; }\r",
+							"            currentPath.push(key);\r",
+							"        }\r",
+							"        var ltype = typeof lhs;\r",
+							"        var rtype = typeof rhs;\r",
+							"        if (ltype === 'undefined') {\r",
+							"            if (rtype !== 'undefined') {\r",
+							"                changes.push({ kind: 'N', path: currentPath, rhs: rhs });\r",
+							"            }\r",
+							"        } else if (rtype === 'undefined') {\r",
+							"            changes.push({ kind: 'D', path: currentPath, lhs: lhs });\r",
+							"        } else if (ltype !== rtype) {\r",
+							"            changes.push({ kind: 'E', path: currentPath, lhs: lhs, rhs: rhs });\r",
+							"        } else if (lhs instanceof Date && rhs instanceof Date && lhs - rhs !== 0) {\r",
+							"            changes.push({ kind: 'E', path: currentPath, lhs: lhs, rhs: rhs });\r",
+							"        } else if (ltype === 'object' && lhs !== null && rhs !== null) {\r",
+							"            if (stack.indexOf(lhs) < 0) {\r",
+							"                stack.push(lhs);\r",
+							"                if (Array.isArray(lhs)) {\r",
+							"                    var i, len = lhs.length;\r",
+							"                    for (i = 0; i < len; i++) {\r",
+							"                        deepDiff(lhs[i], rhs[i], changes, prefilter, currentPath, i, stack);\r",
+							"                    }\r",
+							"                } else {\r",
+							"                    var akeys = Object.keys(lhs);\r",
+							"                    var pkeys = Object.keys(rhs);\r",
+							"                    akeys.forEach(function (k) {\r",
+							"                        deepDiff(lhs[k], rhs[k], changes, prefilter, currentPath, k, stack);\r",
+							"                    });\r",
+							"                    pkeys.forEach(function (k) {\r",
+							"                        if (typeof lhs[k] === 'undefined') {\r",
+							"                            deepDiff(undefined, rhs[k], changes, prefilter, currentPath, k, stack);\r",
+							"                        }\r",
+							"                    });\r",
+							"                }\r",
+							"                stack.pop();\r",
+							"            }\r",
+							"        } else if (lhs !== rhs) {\r",
+							"            changes.push({ kind: 'E', path: currentPath, lhs: lhs, rhs: rhs });\r",
+							"        }\r",
+							"    }\r",
+							"\r",
+							"    function diff(lhs, rhs, prefilter) {\r",
+							"        var changes = [];\r",
+							"        deepDiff(lhs, rhs, changes, prefilter);\r",
+							"        return changes.length ? changes : undefined;\r",
+							"    }\r",
+							"\r",
+							"    // Compare the responses\r",
+							"    var differences = diff(api1ResponseJson, api2ResponseJson);\r",
+							"\r",
+							"    pm.test(\"Responses are equal\", function () {\r",
+							"        if (differences) {\r",
+							"            console.log(\"Differences found:\", differences);\r",
+							"            pm.expect.fail(\"Responses are not equal. Differences: \" + JSON.stringify(differences, null, 2));\r",
+							"        } else {\r",
+							"            pm.expect(api1ResponseJson).to.eql(api2ResponseJson);\r",
+							"        }\r",
+							"    });\r",
+							"}"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://dsc-resources-uat.level3.com/api/v3/dynamicServices/whitelist/elynks/{{uniServiceId}}",
+					"protocol": "http",
+					"host": [
+						"dsc-resources-uat",
+						"level3",
+						"com"
+					],
+					"path": [
+						"api",
+						"v3",
+						"dynamicServices",
+						"whitelist",
+						"elynks",
+						"{{uniServiceId}}"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
